@@ -1,0 +1,57 @@
+Take screenshots of each answer from the terminal in lab and take screenshot on word document
+
+while submitting for all 3 sections use the same word document
+
+
+First uplaod the project_data into the lab using FTP or alternatively 
+Use the Hue browser and click files to get into the HDFS directory ,
+You can use upload option to upload project_data in this HDFS directory
+
+
+
+1) spark-shell --packages com.databricks:spark-csv_2.11:1.5.0
+
+2) val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+val df = sqlContext.read.format("com.databricks.spark.csv").option("header","true").option("inferSchema","true").option("delimiter",",").load("project-data.txt") 
+
+3) val totalcount = df.count().toDouble 
+
+   45211.0  
+
+4) val subscription_count= df.filter($"y" === "yes").count().toDouble 
+
+5) val success_rate = subscription_count/totalcount 
+
+6) df.select(max($"age"), avg($"age"), min($"age")).show 
+
+7) df.registerTempTable("bankdetails")  
+
+8) sqlContext.sql("select percentile(balance,0.5) as median ,avg(balance) as average from bankdetails").show  
+
+9)  df.groupBy("y").agg(avg($"age")).show 
+
+10) df.groupBy("y").agg(count($"marital")).show 
+
+11) df.groupBy("marital","y").count().sort($"count".desc).show 
+
+12) df.groupBy("age","y").count().sort($"count".desc).show
+
+13) df.groupBy("age","y").count().sort($"count".desc).count 
+
+14) import org.apache.spark.sql.functions.udf 
+ 
+def ageToCategory = udf((age:Int) => {       age match {     
+  case t if t < 30 => "young"       case t if t > 65 => "old"       case _ => "mid"       }       }      ) 
+ 
+15) val newdf = df.withColumn("agecategory",ageToCategory(df("age"))) 
+
+16) newdf.groupBy("agecategory","y").count().sort($"count".desc).show 
+
+
+
+
+
+
+
+  
+

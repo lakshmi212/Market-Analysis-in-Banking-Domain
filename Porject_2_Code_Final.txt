@@ -1,0 +1,46 @@
+USE BDHS_PROJECT_PETSTON;
+CREATE TABLE EMPLOYEE_DELTA(Index INT, Company String, Location String, Date_Posted String, Job_Title String, Summary String, Pros String, Cons String, 
+              Overall_Rating Int, Work_Life_Balance Int, Culture_Values_Rating Int, Career_Opportunities_Rating int, 
+              Comp_Benefits_Rating int, Senior_Management_Rating int) row format delimited fields terminated by ',' stored as textfile;
+
+
+SELECT * FROM EMPLOYEE_DELTA;
+
+
+LOAD DATA INPATH '/user/petston_gmail/Project_2/employee_review_data.txt' OVERWRITE INTO TABLE EMPLOYEE_DELTA;
+
+
+CREATE TABLE PART_EMPLOYEE_DELTA(Serial_No Int, Company String, Country String, Year String, Job_Title String, Overall_Rating Int, Work_Life_Balance Int, Culture_Values_Rating Int, 
+                                 Career_Opportunities_Rating int, Comp_Benefits_Rating int, Senior_Management_Rating int) row format delimited fields terminated by ',' stored as textFILE;
+
+
+select * FROM employee_delta LIMIT 1;
+
+DROP TABLE PART_EMPLOYEE_DELTA;
+
+
+INSERT OVERWRITE TABLE part_employee_delta SELECT * FROM part_employee_delta WHERE 1=0;
+
+
+INSERT INTO TABLE PART_EMPLOYEE_DELTA SELECT Index, COMPANY, coalesce((SPLIT((SPLIT(location, "\\(")[1]),"\\)")[0]), "USA"), SPLIT(DATE_POSTED,";")[1], Job_Title, overall_rating, work_life_balance, culture_values_rating, career_opportunities_rating, comp_benefits_rating,  senior_management_rating FROM EMPLOYEE_DELTA; 
+
+SELECT * FROM PART_EMPLOYEE_DELTA LIMIT 2;
+
+CREATE TABLE EMPLOYEE_FINAL(Serial_No INt, Company String, YEAR String , Job_Title String, Overall_Rating BIGINT, Work_Life_Balance BIGINT, Culture_Values_Rating BIGINT, 
+                            Career_Opportunities_Rating BIGINT, Comp_Benefits_Rating BIGINT, Senior_Management_Rating BIGINT) PARTITIONED BY(Country String) CLUSTERED BY(YEAR) INTO 10 BUCKETS 
+                            ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS textfile;
+
+DROP TABLE EMPLOYEE_FINAL;
+
+set hive.exec.dynamic.partition.mode=nonstrict;
+set hive.exec.dynamic.partition=true;
+set mapred.tasktracker.reduce.tasks.maximum=2;
+set hive.exec.reducers.bytes.per.reducer=256000000; 
+set hive.exec.reducers.max=100;
+SET hive.exec.max.dynamic.partitions=100000;
+SET hive.exec.max.dynamic.partitions.pernode=100000;
+
+
+INSERT INTO TABLE EMPLOYEE_FINAL PARTITION(country) SELECT serial_no, COMPANY, YEAR, JOB_TITLE, Overall_Rating , NVL(Work_Life_Balance ,0), NVL(Culture_Values_Rating ,0), 
+                            NVL(Career_Opportunities_Rating,0), NVL(Comp_Benefits_Rating,0), NVL(senior_Management_Rating,0),country  from part_employee_delta;
+            

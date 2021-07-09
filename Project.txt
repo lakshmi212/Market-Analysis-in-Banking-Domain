@@ -1,0 +1,134 @@
+Use Case_1 : Create a hive table partitioned by country and bucketed by year and also load the review.csv file (Note: Ensure that the right hive environment variable is set for bucket insert)
+
+--------employee_review_data.csv file in HDFS
+
+[raajionline212gmail@ip-10-0-41-79 ~]$ hdfs dfs -ls
+Found 3 items
+drwxrwxrwx   - raajionline212gmail hadoop          0 2021-03-28 16:46 .scratchdir
+-rw-r--r--   3 raajionline212gmail hadoop       1163 2021-03-28 16:49 SalaryGender.csv
+-rw-r--r--   3 raajionline212gmail hadoop   28274575 2021-04-02 19:57 employee_review_data.csv
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Created table skipping the first row.
+create table employee_review(Index int, company string, location struct<city:string, country:string> , dates struct<date1:string, year:string> ,jobtitle string, summary string, pros string,cons string, overallratings int, workbalancestars int,culturevaluesstars int,carreropportunitiesstars int,compbenefitstars int,seniormangemnetstars int) row format delimited fields terminated by ',' collection items terminated by ';' tblproperties("skip.header.line.count"="1");
+
+------Upload employee_review_data.csv file in to employee_review table.
+
+[raajionline212gmail@ip-10-0-41-79 ~]$ hdfs dfs -cp employee_review_data.csv /user/hive/warehouse/raajionline212.db/employee_review
+
+------Create temp table
+
+create table employee_review_1(Index int, company string, city  string, country string , datevalue string, yearvalue string  ,jobtitle string, summary string, pros string,cons string, overallratings int, workbalancestars int,culturevaluesstars int,carreropportunitiesstars int,compbenefitstars int,seniormangemnetstars int) ;
+
+insert overwrite table employee_review_1  select Index, company , location.city , location.country , dates.date1 , dates.year  ,jobtitle , summary , pros ,cons , overallratings , workbalancestars ,culturevaluesstars ,carreropportunitiesstars ,compbenefitstars ,seniormangemnetstars  from employee_review;
+
+create table employee_review_2(Index int, company string, city struct<cityname:string, countryname:string>, country string , datevalue string, yearvalue string  ,jobtitle string, summary string, pros string,cons string, overallratings int, workbalancestars int,culturevaluesstars int,carreropportunitiesstars int,compbenefitstars int,seniormangemnetstars int) collection items terminated by '('  select * from employee_review_1;
+
+create table employee_review_final(Index int, company string, city string,  datevalue string, yearvalue string  ,jobtitle string, summary string, pros string,cons string, overallratings int, workbalancestars int,culturevaluesstars int,carreropportunitiesstars int,compbenefitstars int,seniormangemnetstars int) PARTITIONED BY (country string) CLUSTERED BY (yearvalue ) SORTED BY (yearvalue  ASC) INTO 4 BUCKETS;
+ ----- describe table final partition created table 
+hive> describe employee_review_final;
+OK
+index                   int                                         
+company                 string                                      
+city                    string                                      
+datevalue               string                                      
+yearvalue               string                                      
+jobtitle                string                                      
+summary                 string                                      
+pros                    string                                      
+cons                    string                                      
+overallratings          int                                         
+workbalancestars        int                                         
+culturevaluesstars      int                                         
+carreropportunitiesstars        int                                         
+compbenefitstars        int                                         
+seniormangemnetstars    int                                         
+country                 string                                      
+                 
+# Partition Information          
+# col_name              data_type               comment                           
+country                 string         
+-------------insert data into employee_review_final table 
+SET hive.enforce.bucketing=TRUE;
+set hive.exec.dynamic.partition.mode = nonstrict;
+insert overwrite table employee_review_final partition(country) select Index, company , city, datevalue, yearvalue   ,jobtitle , summary , pros ,cons , overallratings , workbalancestars ,culturevaluesstars ,carreropportunitiesstars ,compbenefitstars ,seniormangemnetstars, country  from employee_review_1;
+---------------
+select count(*) from employee_review_final;
+67529
+
+----Table location in HDFS
+[raajionline212gmail@ip-10-0-42-218 ~]$ hdfs dfs -ls /user/hive/warehouse/raajionline212.db/
+Found 4 items
+drwxrwxrwt   - raajionline212gmail hive          0 2021-04-03 18:22 /user/hive/warehouse/raajionline212.db/employee_review
+drwxrwxrwt   - raajionline212gmail hive          0 2021-04-04 18:47 /user/hive/warehouse/raajionline212.db/employee_review_1
+drwxrwxrwt   - raajionline212gmail hive          0 2021-04-04 18:59 /user/hive/warehouse/raajionline212.db/employee_review_final
+drwxrwxrwt   - raajionline212gmail hive          0 2021-04-02 19:41 /user/hive/warehouse/raajionline212.db/tabl1
+
+-----Description of Employee_review_final table
+hive> describe formatted employee_review_final;
+OK
+# col_name              data_type               comment             
+                 
+index                   int                                         
+company                 string                                      
+city                    string                                      
+datevalue               string                                      
+yearvalue               string                                      
+jobtitle                string                                      
+summary                 string                                      
+pros                    string                                      
+cons                    string                                      
+overallratings          int                                         
+workbalancestars        int                                         
+culturevaluesstars      int                                         
+carreropportunitiesstars        int                                         
+compbenefitstars        int                                         
+seniormangemnetstars    int                                         
+                 
+# Partition Information          
+# col_name              data_type               comment             
+                 
+country                 string                                      
+                 
+# Detailed Table Information             
+Database:               raajionline212           
+OwnerType:              USER                     
+Owner:                  raajionline212gmail      
+CreateTime:             Sun Apr 04 18:52:28 UTC 2021     
+LastAccessTime:         UNKNOWN                  
+Retention:              0                        
+Location:               hdfs://nameservice1/user/hive/warehouse/raajionline212.db/employee_review_final  
+Table Type:             MANAGED_TABLE            
+Table Parameters:                
+        COLUMN_STATS_ACCURATE   {\"BASIC_STATS\":\"true\"}
+        SORTBUCKETCOLSPREFIX    TRUE                
+        numFiles                24                  
+        numPartitions           6                   
+        numRows                 67529               
+        rawDataSize             16456031            
+        totalSize               16523560            
+        transient_lastDdlTime   1617562348          
+                 
+# Storage Information            
+SerDe Library:          org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe       
+InputFormat:            org.apache.hadoop.mapred.TextInputFormat         
+OutputFormat:           org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat       
+Compressed:             No                       
+Num Buckets:            4                        
+Bucket Columns:         [yearvalue]              
+Sort Columns:           [Order(col:yearvalue, order:1)]  
+Storage Desc Params:             
+        serialization.format    1                   
+Time taken: 0.106 seconds, Fetched: 52 row(s)	
+
+
+-------------
+
+hive> show partitions employee_review_final;
+
+
+-------------------------------------------------------------------------------------------------------------------------------------
+
+
+USECASE_2:
+
